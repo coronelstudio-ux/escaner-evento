@@ -1,0 +1,570 @@
+<!DOCTYPE html>
+<html lang="es">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1, maximum-scale=1">
+  <title>Escáner QR - Evento</title>
+  <script src="https://unpkg.com/html5-qrcode@2.3.8/html5-qrcode.min.js"></script>
+  <style>
+    * { box-sizing: border-box; margin: 0; padding: 0; }
+    body {
+      font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, sans-serif;
+      background: #111;
+      color: white;
+      min-height: 100vh;
+      overflow-x: hidden;
+    }
+    .login-wrapper {
+      min-height: 100vh;
+      display: flex;
+      align-items: center;
+      justify-content: center;
+      padding: 20px;
+      background: linear-gradient(135deg, #667eea 0%, #764ba2 100%);
+    }
+    .login-box {
+      background: white;
+      color: #333;
+      border-radius: 12px;
+      box-shadow: 0 20px 60px rgba(0,0,0,0.3);
+      padding: 40px;
+      width: 100%;
+      max-width: 400px;
+    }
+    .login-box h1 { font-size: 22px; margin-bottom: 8px; text-align: center; }
+    .login-box p { color: #666; font-size: 14px; text-align: center; margin-bottom: 24px; }
+    .form-group { margin-bottom: 16px; }
+    .form-group label { display: block; margin-bottom: 6px; font-weight: 500; font-size: 14px; }
+    .form-group input {
+      width: 100%;
+      padding: 12px 14px;
+      border: 2px solid #e0e0e0;
+      border-radius: 8px;
+      font-size: 16px;
+      font-family: inherit;
+    }
+    .form-group input:focus { outline: none; border-color: #667eea; }
+    .btn-login {
+      width: 100%;
+      padding: 14px;
+      background: #667eea;
+      color: white;
+      border: none;
+      border-radius: 8px;
+      font-size: 16px;
+      font-weight: 600;
+      cursor: pointer;
+      font-family: inherit;
+    }
+    .btn-login:disabled { background: #ccc; cursor: not-allowed; }
+    .escaner-header {
+      background: #1a73e8;
+      padding: 12px 16px;
+      display: flex;
+      justify-content: space-between;
+      align-items: center;
+      position: sticky;
+      top: 0;
+      z-index: 100;
+    }
+    .escaner-header h1 { font-size: 16px; }
+    .escaner-info { font-size: 12px; opacity: 0.9; margin-top: 2px; }
+    .escaner-header button {
+      background: rgba(255,255,255,0.2);
+      color: white;
+      border: none;
+      padding: 8px 14px;
+      border-radius: 6px;
+      cursor: pointer;
+      font-size: 13px;
+      font-family: inherit;
+    }
+    .escaner-container {
+      max-width: 500px;
+      margin: 0 auto;
+      padding: 12px;
+    }
+    .estado {
+      background: #222;
+      padding: 10px;
+      border-radius: 8px;
+      margin-bottom: 12px;
+      text-align: center;
+      font-size: 14px;
+    }
+    .estado.activo { background: #28a745; }
+    .estado.error { background: #dc3545; }
+    #reader {
+      width: 100%;
+      background: #000;
+      border-radius: 12px;
+      overflow: hidden;
+      margin-bottom: 12px;
+    }
+    .resultado {
+      padding: 20px;
+      border-radius: 12px;
+      text-align: center;
+      margin-bottom: 12px;
+      transition: background 0.3s;
+      min-height: 100px;
+      display: flex;
+      flex-direction: column;
+      justify-content: center;
+      align-items: center;
+    }
+    .resultado.neutro { background: #333; }
+    .resultado.verde { background: #28a745; }
+    .resultado.amarillo { background: #ffc107; color: #333; }
+    .resultado.rojo { background: #dc3545; }
+    .resultado-icono { font-size: 40px; margin-bottom: 8px; }
+    .resultado-texto { font-size: 18px; font-weight: 600; line-height: 1.3; }
+    .stats {
+      display: grid;
+      grid-template-columns: repeat(3, 1fr);
+      gap: 8px;
+      margin-bottom: 12px;
+    }
+    .stat-mini {
+      background: #333;
+      padding: 12px;
+      border-radius: 8px;
+      text-align: center;
+    }
+    .stat-mini.ok { background: #155724; }
+    .stat-mini.warn { background: #721c24; }
+    .stat-label { font-size: 11px; opacity: 0.8; margin-bottom: 4px; }
+    .stat-value { font-size: 22px; font-weight: 700; }
+    .acciones { display: flex; gap: 8px; }
+    .acciones button {
+      flex: 1;
+      padding: 12px;
+      border: none;
+      border-radius: 8px;
+      cursor: pointer;
+      font-size: 14px;
+      font-weight: 600;
+      font-family: inherit;
+    }
+    .btn-warning { background: #ffc107; color: #333; }
+    .btn-secondary { background: #444; color: white; }
+    .modal {
+      display: none;
+      position: fixed;
+      inset: 0;
+      background: rgba(0,0,0,0.8);
+      align-items: center;
+      justify-content: center;
+      z-index: 1000;
+      padding: 20px;
+    }
+    .modal.show { display: flex; }
+    .modal-content {
+      background: white;
+      color: #333;
+      border-radius: 12px;
+      padding: 24px;
+      width: 100%;
+      max-width: 450px;
+    }
+    .modal-content h2 { margin-bottom: 16px; }
+    .modal-content .form-group label { color: #333; }
+    .modal-content input, .modal-content textarea {
+      width: 100%;
+      padding: 10px;
+      border: 1px solid #ddd;
+      border-radius: 6px;
+      font-size: 15px;
+      font-family: inherit;
+    }
+    .modal-actions { display: flex; gap: 10px; margin-top: 20px; }
+    .modal-actions button {
+      flex: 1;
+      padding: 12px;
+      border: none;
+      border-radius: 6px;
+      font-weight: 600;
+      cursor: pointer;
+      font-family: inherit;
+    }
+    .error-msg {
+      background: #fee;
+      color: #c33;
+      padding: 10px;
+      border-radius: 6px;
+      margin-bottom: 12px;
+      font-size: 14px;
+      display: none;
+    }
+    .error-msg.show { display: block; }
+  </style>
+</head>
+<body>
+
+  <div id="loginView" class="login-wrapper">
+    <div class="login-box">
+      <h1>🎟️ Escáner QR</h1>
+      <p>Evento Universitario 2025</p>
+      <div class="error-msg" id="loginError"></div>
+      <form id="loginForm">
+        <div class="form-group">
+          <label>Usuario</label>
+          <input type="text" id="usuario" autocomplete="username" required>
+        </div>
+        <div class="form-group">
+          <label>Contraseña</label>
+          <input type="password" id="password" autocomplete="current-password" required>
+        </div>
+        <button type="submit" class="btn-login" id="btnLogin">Iniciar sesión</button>
+      </form>
+    </div>
+  </div>
+
+  <div id="escanerView" style="display:none;">
+    <div class="escaner-header">
+      <div>
+        <h1>📱 Escáner QR</h1>
+        <div class="escaner-info" id="escanerInfo"></div>
+      </div>
+      <button onclick="cerrarSesion()">Salir</button>
+    </div>
+    
+    <div class="escaner-container">
+      <div class="estado" id="estado">
+        <span id="estadoTexto">Iniciando...</span>
+      </div>
+      
+      <div id="reader"></div>
+      
+      <div class="resultado neutro" id="resultado">
+        <div class="resultado-icono" id="resultadoIcono">📷</div>
+        <div class="resultado-texto" id="resultadoTexto">Apunta al código QR</div>
+      </div>
+      
+      <div class="stats">
+        <div class="stat-mini">
+          <div class="stat-label">Total</div>
+          <div class="stat-value" id="statTotal">0</div>
+        </div>
+        <div class="stat-mini ok">
+          <div class="stat-label">Válidos</div>
+          <div class="stat-value" id="statValidos">0</div>
+        </div>
+        <div class="stat-mini warn">
+          <div class="stat-label">Rechazados</div>
+          <div class="stat-value" id="statRechazados">0</div>
+        </div>
+      </div>
+      
+      <div class="acciones">
+        <button class="btn-warning" onclick="abrirForzar()">🔓 Forzar entrada</button>
+        <button class="btn-secondary" onclick="reiniciar()">🔄 Reiniciar</button>
+      </div>
+    </div>
+  </div>
+
+  <div class="modal" id="modalForzar">
+    <div class="modal-content">
+      <h2>🔓 Forzar entrada</h2>
+      <div class="error-msg" id="errorForzar"></div>
+      <div class="form-group">
+        <label>Código QR *</label>
+        <input type="text" id="forzarCodigo">
+      </div>
+      <div class="form-group">
+        <label>Código supervisor</label>
+        <input type="text" id="forzarSupervisor">
+      </div>
+      <div class="form-group">
+        <label>Motivo *</label>
+        <textarea id="forzarMotivo" rows="2"></textarea>
+      </div>
+      <div class="modal-actions">
+        <button style="background:#ddd" onclick="cerrarModal()">Cancelar</button>
+        <button style="background:#ffc107;color:#333" onclick="ejecutarForzar()">Forzar</button>
+      </div>
+    </div>
+  </div>
+
+  <script>
+    // ⚠️ REEMPLAZAR CON LA URL DE TU API
+    const API_URL = 'PEGA_AQUI_TU_URL_DEL_API';
+
+    let token = localStorage.getItem('token');
+    let usuario = JSON.parse(localStorage.getItem('usuario') || 'null');
+    let escanerHtml5 = null;
+    let ultimoCodigo = null;
+    let ultimoTiempo = 0;
+    let activo = false;
+    let contadores = { total: 0, validos: 0, rechazados: 0 };
+
+    document.getElementById('loginForm').addEventListener('submit', async function(e) {
+      e.preventDefault();
+      
+      const usuarioInput = document.getElementById('usuario').value.trim();
+      const passwordInput = document.getElementById('password').value;
+      const btn = document.getElementById('btnLogin');
+      const errorDiv = document.getElementById('loginError');
+      
+      btn.disabled = true;
+      btn.textContent = 'Verificando...';
+      errorDiv.classList.remove('show');
+      
+      try {
+        const resp = await fetch(API_URL, {
+          method: 'POST',
+          body: JSON.stringify({
+            accion: 'login',
+            usuario: usuarioInput,
+            password: passwordInput
+          })
+        });
+        
+        const data = await resp.json();
+        
+        if (!data.ok) {
+          errorDiv.textContent = data.mensaje;
+          errorDiv.classList.add('show');
+          btn.disabled = false;
+          btn.textContent = 'Iniciar sesión';
+          return;
+        }
+        
+        token = data.token;
+        usuario = data.usuario;
+        localStorage.setItem('token', token);
+        localStorage.setItem('usuario', JSON.stringify(usuario));
+        
+        mostrarEscaner();
+        
+      } catch (err) {
+        errorDiv.textContent = 'Error de conexión: ' + err.message;
+        errorDiv.classList.add('show');
+        btn.disabled = false;
+        btn.textContent = 'Iniciar sesión';
+      }
+    });
+
+    async function mostrarEscaner() {
+      document.getElementById('loginView').style.display = 'none';
+      document.getElementById('escanerView').style.display = 'block';
+      document.getElementById('escanerInfo').textContent = 
+        `${usuario.nombre} · ${usuario.puerta || 'Sin puerta'}`;
+      
+      await iniciarEscaner();
+    }
+
+    async function iniciarEscaner() {
+      const estado = document.getElementById('estado');
+      const estadoTexto = document.getElementById('estadoTexto');
+      
+      try {
+        estadoTexto.textContent = '⏳ Solicitando permiso...';
+        const stream = await navigator.mediaDevices.getUserMedia({ 
+          video: { facingMode: 'environment' } 
+        });
+        stream.getTracks().forEach(t => t.stop());
+      } catch (err) {
+        estado.classList.add('error');
+        estadoTexto.textContent = '❌ Sin acceso a cámara: ' + err.message;
+        return;
+      }
+      
+      estadoTexto.textContent = '⏳ Iniciando escáner...';
+      
+      if (!escanerHtml5) {
+        escanerHtml5 = new Html5Qrcode("reader");
+      }
+      
+      try {
+        await escanerHtml5.start(
+          { facingMode: 'environment' },
+          { fps: 10, qrbox: { width: 250, height: 250 } },
+          onScanSuccess,
+          onScanError
+        );
+        
+        estado.classList.add('activo');
+        estadoTexto.textContent = '✅ Cámara activa - Apunta al QR';
+        activo = true;
+      } catch (err) {
+        estado.classList.add('error');
+        estadoTexto.textContent = '❌ ' + err.message;
+      }
+    }
+
+    function onScanSuccess(codigo) {
+      if (!activo) return;
+      
+      const ahora = Date.now();
+      if (codigo === ultimoCodigo && ahora - ultimoTiempo < 3000) return;
+      
+      ultimoCodigo = codigo;
+      ultimoTiempo = ahora;
+      activo = false;
+      
+      if (navigator.vibrate) navigator.vibrate(50);
+      
+      validarQR(codigo);
+    }
+
+    function onScanError(err) {}
+
+    async function validarQR(codigo) {
+      try {
+        const resp = await fetch(API_URL, {
+          method: 'POST',
+          body: JSON.stringify({
+            accion: 'validarQR',
+            token: token,
+            codigo: codigo,
+            dispositivo: navigator.userAgent
+          })
+        });
+        
+        const data = await resp.json();
+        mostrarResultado(data);
+        actualizarContadores(data);
+        
+        setTimeout(() => { activo = true; }, 2000);
+        
+      } catch (err) {
+        mostrarResultado({
+          valido: false,
+          resultado: 'error',
+          mensaje: 'Error de conexión',
+          color: 'rojo'
+        });
+        setTimeout(() => { activo = true; }, 2000);
+      }
+    }
+
+    function mostrarResultado(resp) {
+      const div = document.getElementById('resultado');
+      const icono = document.getElementById('resultadoIcono');
+      const texto = document.getElementById('resultadoTexto');
+      
+      div.className = 'resultado ' + (resp.color || 'rojo');
+      
+      if (resp.valido) {
+        icono.textContent = '✅';
+        texto.innerHTML = `VÁLIDO<br>${resp.entrada ? resp.entrada.nombre : ''}`;
+        if (navigator.vibrate) navigator.vibrate([100, 50, 100]);
+      } else if (resp.resultado === 'ya_usado') {
+        icono.textContent = '⚠️';
+        texto.innerHTML = `YA UTILIZADA<br><span style="font-size:13px">${resp.entrada ? resp.entrada.nombre : ''}</span>`;
+        if (navigator.vibrate) navigator.vibrate([200, 100, 200]);
+      } else {
+        icono.textContent = '❌';
+        texto.innerHTML = resp.mensaje;
+        if (navigator.vibrate) navigator.vibrate([300, 100, 300]);
+      }
+      
+      setTimeout(() => {
+        div.className = 'resultado neutro';
+        icono.textContent = '📷';
+        texto.textContent = 'Apunta al código QR';
+      }, 3000);
+    }
+
+    function actualizarContadores(resp) {
+      contadores.total++;
+      if (resp.valido) contadores.validos++;
+      else contadores.rechazados++;
+      
+      document.getElementById('statTotal').textContent = contadores.total;
+      document.getElementById('statValidos').textContent = contadores.validos;
+      document.getElementById('statRechazados').textContent = contadores.rechazados;
+    }
+
+    function reiniciar() {
+      if (!confirm('¿Reiniciar contadores?')) return;
+      contadores = { total: 0, validos: 0, rechazados: 0 };
+      document.getElementById('statTotal').textContent = '0';
+      document.getElementById('statValidos').textContent = '0';
+      document.getElementById('statRechazados').textContent = '0';
+    }
+
+    function abrirForzar() {
+      document.getElementById('forzarCodigo').value = ultimoCodigo || '';
+      document.getElementById('forzarSupervisor').value = '';
+      document.getElementById('forzarMotivo').value = '';
+      document.getElementById('errorForzar').classList.remove('show');
+      document.getElementById('modalForzar').classList.add('show');
+    }
+
+    function cerrarModal() {
+      document.getElementById('modalForzar').classList.remove('show');
+    }
+
+    async function ejecutarForzar() {
+      const codigo = document.getElementById('forzarCodigo').value.trim();
+      const supervisor = document.getElementById('forzarSupervisor').value.trim();
+      const motivo = document.getElementById('forzarMotivo').value.trim();
+      const errorDiv = document.getElementById('errorForzar');
+      
+      if (!codigo || !motivo) {
+        errorDiv.textContent = 'Código y motivo son obligatorios';
+        errorDiv.classList.add('show');
+        return;
+      }
+      
+      try {
+        const resp = await fetch(API_URL, {
+          method: 'POST',
+          body: JSON.stringify({
+            accion: 'forzarEntrada',
+            token: token,
+            codigo: codigo,
+            codigoSupervisor: supervisor,
+            motivo: motivo
+          })
+        });
+        
+        const data = await resp.json();
+        cerrarModal();
+        
+        if (data.ok) {
+          alert('✅ Entrada forzada');
+          const div = document.getElementById('resultado');
+          div.className = 'resultado verde';
+          document.getElementById('resultadoIcono').textContent = '🔓';
+          document.getElementById('resultadoTexto').innerHTML = `FORZADO<br>${data.entrada ? data.entrada.nombre : ''}`;
+          
+          setTimeout(() => {
+            div.className = 'resultado neutro';
+            document.getElementById('resultadoIcono').textContent = '📷';
+            document.getElementById('resultadoTexto').textContent = 'Apunta al código QR';
+          }, 3000);
+        } else {
+          alert('❌ ' + data.mensaje);
+        }
+      } catch (err) {
+        errorDiv.textContent = 'Error: ' + err.message;
+        errorDiv.classList.add('show');
+      }
+    }
+
+    async function cerrarSesion() {
+      if (escanerHtml5) {
+        try { await escanerHtml5.stop(); } catch(e) {}
+      }
+      
+      try {
+        await fetch(API_URL, {
+          method: 'POST',
+          body: JSON.stringify({ accion: 'logout', token: token })
+        });
+      } catch (e) {}
+      
+      localStorage.removeItem('token');
+      localStorage.removeItem('usuario');
+      location.reload();
+    }
+
+    if (token && usuario) {
+      mostrarEscaner();
+    }
+  </script>
+</body>
+</html>
